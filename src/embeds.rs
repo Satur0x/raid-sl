@@ -5,10 +5,10 @@ use serenity::{
     model::{id::EmojiId, misc::Mention},
 };
 
-const EMBED_AUTHOR_ICON_URL: &str = "https://cdn.discordapp.com/avatars/512706205647372302/eb7a7f2de9a97006e8217b73ab5c7836.webp?size=128";
-const EMBED_AUTHOR_NAME: &str = "Crossroads Bot";
+const EMBED_AUTHOR_ICON_URL: &str = "https://cdn.discordapp.com/app-icons/951478616095604786/c688ced5faebc2fc23320fc62be291b9.png?size=128";
+const EMBED_AUTHOR_NAME: &str = "Raid Shadow Legends";
 const EMBED_THUMBNAIL: &str =
-    "https://github.com/pascalharp/crossroadsbot/blob/main/resources/inn_bot_logo.png?raw=true";
+    "https://cdn.discordapp.com/app-icons/951478616095604786/c688ced5faebc2fc23320fc62be291b9.png?size=256";
 const EMBED_STYLE_COLOR: (u8, u8, u8) = (99, 51, 45);
 
 pub trait CrossroadsEmbeds {
