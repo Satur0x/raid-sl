@@ -1,0 +1,28 @@
+version: '2.1'
+services:
+  bot:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    network_mode: service:db
+    restart: always
+  db:
+    image: postgres
+    volumes:
+      - ./docker_db:/docker-entrypoint-initdb.d/
+      - dbdata:/var/lib/postgresql
+    healthcheck:
+      test: exit 0
+    environment:
+      - ALLOW_IP_RANGE=0.0.0.0/0
+      - APP_DB_NAME=shadowlegends
+      - APP_DB_PASS=shadowlegends
+      - APP_DB_USER=shadowlegends
+      - POSTGRES_PASSWORD=docker
+      - POSTGRES_USER=docker
+    restart: on-failure
+volumes:
+  dbdata:
