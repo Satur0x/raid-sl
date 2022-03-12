@@ -4,5 +4,5 @@ CREATE TABLE tiers (
 	name TEXT UNIQUE NOT NULL
 );
 
-ALTER TABLE trainings
+ALTER TABLE raids
 	ADD COLUMN tier_id INT REFERENCES tiers(id);

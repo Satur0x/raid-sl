@@ -57,7 +57,7 @@ async fn load_guild_id(ctx: &Context) -> Result<GuildId> {
     Ok(guild_id)
 }
 
-pub(crate) fn title_sort_value(t: &db::Training) -> u64 {
+pub(crate) fn title_sort_value(t: &db::Raid) -> u64 {
     if t.title.contains("Beginner") {
         return 10;
     }
@@ -163,7 +163,7 @@ impl SignupBoard {
         Ok(())
     }
 
-    /// Loads all relevant training(s) from the db and updates the overview message
+    /// Loads all relevant raid(s) from the db and updates the overview message
     pub async fn update_overview(&self, ctx: &Context, trace: LogTrace) -> Result<()> {
         trace.step("Loading overview information");
         let msg = match self.overview_message_id {
@@ -175,26 +175,26 @@ impl SignupBoard {
             None => return Err(SignupBoardError::OverviewChannelNotSet.into()),
         };
 
-        trace.step("Loading training(s)");
-        let active_trainings = db::Training::all_active(ctx).await?;
+        trace.step("Loading raid(s)");
+        let active_raids = db::Raid::all_active(ctx).await?;
 
         struct TierInfo {
             _tier: db::Tier,
             discord: Vec<RoleId>,
         }
 
-        struct TrainingInfo {
-            training: db::Training,
+        struct RaidInfo {
+            raid: db::Raid,
             signup_count: i64,
             tier_info: Option<TierInfo>,
-            bosses: Vec<db::TrainingBoss>,
+            bosses: Vec<db::RaidBoss>,
         }
 
         trace.step("Loading additional traning info");
-        let mut trainings: Vec<TrainingInfo> = Vec::new();
-        for training in active_trainings {
-            let signup_count = training.get_signup_count(ctx).await?;
-            let tier = training.get_tier(ctx).await.transpose()?;
+        let mut raids: Vec<RaidInfo> = Vec::new();
+        for raid in active_raids {
+            let signup_count = raid.get_signup_count(ctx).await?;
+            let tier = raid.get_tier(ctx).await.transpose()?;
             let tier_info = if let Some(_tier) = tier {
                 let discord = _tier
                     .get_discord_roles(ctx)
@@ -207,12 +207,12 @@ impl SignupBoard {
             } else {
                 None
             };
-            let mut bosses = training.all_training_bosses(ctx).await?;
+            let mut bosses = raid.all_raid_bosses(ctx).await?;
             bosses.sort_by_key(|b| b.position);
             bosses.sort_by_key(|b| b.wing);
 
-            trainings.push(TrainingInfo {
-                training,
+            raids.push(RaidInfo {
+                raid,
                 signup_count,
                 tier_info,
                 bosses,
@@ -220,19 +220,19 @@ impl SignupBoard {
         }
 
         // Sort by custom names and dates
-        trainings.sort_by(|a, b| title_sort_value(&b.training).cmp(&title_sort_value(&a.training)));
-        trainings.sort_by(|a, b| a.training.date.date().cmp(&b.training.date.date()));
+        raids.sort_by(|a, b| title_sort_value(&b.raid).cmp(&title_sort_value(&a.raid)));
+        raids.sort_by(|a, b| a.raid.date.date().cmp(&b.raid.date.date()));
 
-        let mut _groups: Vec<(NaiveDate, Vec<&TrainingInfo>)> = Vec::new();
-        for (d, v) in trainings
+        let mut _groups: Vec<(NaiveDate, Vec<&RaidInfo>)> = Vec::new();
+        for (d, v) in raids
             .iter()
-            .group_by(|t| t.training.date.date())
+            .group_by(|t| t.raid.date.date())
             .into_iter()
         {
             _groups.push((d, v.collect()));
         }
 
-        let mut groups: Vec<(NaiveDate, Vec<&TrainingInfo>, usize)> =
+        let mut groups: Vec<(NaiveDate, Vec<&RaidInfo>, usize)> =
             Vec::with_capacity(_groups.len());
         for (d, v) in _groups {
             // FIXME do this without extra db access
@@ -248,7 +248,7 @@ impl SignupBoard {
         chan.edit_message(ctx, msg, |m| {
             m.add_embed(|e| {
                 e.0 = base_emb.0.clone();
-                e.title("Sign up for a training");
+                e.title("Sign up for a raid");
                 e.field(
                     "How to",
                     "\
@@ -260,21 +260,21 @@ To **sign up**, **sign out** or to **edit** your sign-up click the button at the
                     "Legend",
                     format!(
                         "{} => {}\n{} => {}\n{} => {}",
-                        GREEN_CIRCLE_EMOJI, "You can join this training or edit/remove your sign-up",
-                        LOCK_EMOJI, "The training is locked. Most likely squadmaking is in progress",
-                        RUNNING_EMOJI, "The training is currently ongoing"
+                        GREEN_CIRCLE_EMOJI, "You can join this raid or edit/remove your sign-up",
+                        LOCK_EMOJI, "The raid is locked. Most likely squadmaking is in progress",
+                        RUNNING_EMOJI, "The raid is currently ongoing"
                         ),
                     false);
                 e.footer(|f| f.text("Last update"));
                 e.timestamp(&chrono::Utc::now())
             });
-            for (date, trainings, total) in groups {
+            for (date, raids, total) in groups {
                 m.add_embed(|e| {
                     e.0 = base_emb.0.clone();
                     e.title(date.format("__**%A**, %v__"));
                     e.description(&format!("Total sign-up count: {}", total));
-                    for t in trainings {
-                        let mut details = format!("`     Time    `   <t:{}:t>", t.training.date.timestamp());
+                    for t in raids {
+                        let mut details = format!("`     Time    `   <t:{}:t>", t.raid.date.timestamp());
                         if let Some(tier) = &t.tier_info {
                             details.push_str(&format!("\n`Tier required`   {}", tier.discord.iter().map(|d| Mention::from(*d)).join(" ")));
                         } else {
@@ -296,14 +296,14 @@ To **sign up**, **sign out** or to **edit** your sign-up click the button at the
                         e.field(
                             format!(
                                 "{}    **{}**",
-                                match t.training.state {
-                                    db::TrainingState::Created => CONSTRUCTION_SITE_EMOJI,
-                                    db::TrainingState::Open => GREEN_CIRCLE_EMOJI,
-                                    db::TrainingState::Closed => LOCK_EMOJI,
-                                    db::TrainingState::Started => RUNNING_EMOJI,
-                                    db::TrainingState::Finished => CROSS_EMOJI,
+                                match t.raid.state {
+                                    db::RaidState::Created => CONSTRUCTION_SITE_EMOJI,
+                                    db::RaidState::Open => GREEN_CIRCLE_EMOJI,
+                                    db::RaidState::Closed => LOCK_EMOJI,
+                                    db::RaidState::Started => RUNNING_EMOJI,
+                                    db::RaidState::Finished => CROSS_EMOJI,
                                 },
-                                &t.training.title),
+                                &t.raid.title),
                             details,
                             false
                         );
@@ -312,7 +312,7 @@ To **sign up**, **sign out** or to **edit** your sign-up click the button at the
                 });
             }
             m.components(|c| {
-                if !trainings.is_empty() {
+                if !raids.is_empty() {
                     c.add_action_row(interactions::overview_action_row());
                 }
                 c

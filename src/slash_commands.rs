@@ -25,20 +25,20 @@ impl std::error::Error for SlashCommandParseError {}
 
 mod config;
 mod register;
-mod training;
-mod training_boss;
-mod training_role;
-mod training_tier;
+mod raid;
+mod raid_boss;
+mod raid_role;
+mod raid_tier;
 
 /// All slash commands
 #[derive(Debug)]
 pub enum AppCommands {
     Register,
     Unregister,
-    Training,
-    TrainingBoss,
-    TrainingRole,
-    TrainingTier,
+    Raid,
+    RaidBoss,
+    RaidRole,
+    RaidTier,
     Config,
 }
 
@@ -46,10 +46,10 @@ pub enum AppCommands {
 const DEFAULT_COMMANDS: [AppCommands; 7] = [
     AppCommands::Register,
     AppCommands::Unregister,
-    AppCommands::Training,
-    AppCommands::TrainingBoss,
-    AppCommands::TrainingRole,
-    AppCommands::TrainingTier,
+    AppCommands::Raid,
+    AppCommands::RaidBoss,
+    AppCommands::RaidRole,
+    AppCommands::RaidTier,
     AppCommands::Config,
 ];
 
@@ -60,10 +60,10 @@ impl FromStr for AppCommands {
         match s {
             register::CMD_REGISTER => Ok(Self::Register),
             register::CMD_UNREGISTER => Ok(Self::Unregister),
-            training::CMD_TRAINING => Ok(Self::Training),
-            training_boss::CMD_TRAINING_BOSS => Ok(Self::TrainingBoss),
-            training_role::CMD_TRAINING_ROLE => Ok(Self::TrainingRole),
-            training_tier::CMD_TRAINING_TIER => Ok(Self::TrainingTier),
+            raid::CMD_RAID => Ok(Self::Raid),
+            raid_boss::CMD_RAID_BOSS => Ok(Self::RaidBoss),
+            raid_role::CMD_RAID_ROLE => Ok(Self::RaidRole),
+            raid_tier::CMD_RAID_TIER => Ok(Self::RaidTier),
             config::CMD_CONFIG => Ok(Self::Config),
             _ => Err(SlashCommandParseError(s.to_owned())),
         }
@@ -75,10 +75,10 @@ impl AppCommands {
         match self {
             Self::Register => register::create_reg(),
             Self::Unregister => register::create_unreg(),
-            Self::Training => training::create(),
-            Self::TrainingBoss => training_boss::create(),
-            Self::TrainingRole => training_role::create(),
-            Self::TrainingTier => training_tier::create(),
+            Self::Raid => raid::create(),
+            Self::RaidBoss => raid_boss::create(),
+            Self::RaidRole => raid_role::create(),
+            Self::RaidTier => raid_tier::create(),
             Self::Config => config::create(),
         }
     }
@@ -100,10 +100,10 @@ impl AppCommands {
 
         // Here are all the configurations for Slash Command Permissions
         match self {
-            Self::Training
-            | Self::TrainingBoss
-            | Self::TrainingRole
-            | Self::TrainingTier
+            Self::Raid
+            | Self::RaidBoss
+            | Self::RaidRole
+            | Self::RaidTier
             | Self::Config => perms.create_permissions(|p| {
                 p.permission(true)
                     .kind(ApplicationCommandPermissionType::Role)
@@ -123,10 +123,10 @@ impl AppCommands {
         match self {
             Self::Register => register::handle_reg(ctx, aci).await,
             Self::Unregister => register::handle_unreg(ctx, aci).await,
-            Self::Training => training::handle(ctx, aci).await,
-            Self::TrainingBoss => training_boss::handle(ctx, aci).await,
-            Self::TrainingRole => training_role::handle(ctx, aci).await,
-            Self::TrainingTier => training_tier::handle(ctx, aci).await,
+            Self::Raid => raid::handle(ctx, aci).await,
+            Self::RaidBoss => raid_boss::handle(ctx, aci).await,
+            Self::RaidRole => raid_role::handle(ctx, aci).await,
+            Self::RaidTier => raid_tier::handle(ctx, aci).await,
             Self::Config => config::handle(ctx, aci).await,
         }
     }

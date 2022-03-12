@@ -1,6 +1,6 @@
 use crate::db::schema::{
-    config, roles, signup_roles, signups, tier_mappings, tiers, training_boss_mappings,
-    training_bosses, training_roles, trainings, users,
+    config, roles, signup_roles, signups, tier_mappings, tiers, raid_boss_mappings,
+    raid_bosses, raid_roles, raids, users,
 };
 use diesel_derive_enum::DbEnum;
 use serde::Serialize;
@@ -31,12 +31,12 @@ pub(super) struct NewUser {
 
 #[derive(Identifiable, Queryable, Associations, Clone, PartialEq, Debug)]
 #[belongs_to(User)]
-#[belongs_to(Training)]
+#[belongs_to(Raid)]
 #[table_name = "signups"]
 pub struct Signup {
     pub id: i32,
     pub user_id: i32,
-    pub training_id: i32,
+    pub raid_id: i32,
     pub comment: Option<String>,
 }
 
@@ -44,12 +44,12 @@ pub struct Signup {
 #[table_name = "signups"]
 pub struct NewSignup {
     pub user_id: i32,
-    pub training_id: i32,
+    pub raid_id: i32,
 }
 
 #[derive(Debug, DbEnum, PartialEq, PartialOrd, Clone, Serialize)]
-#[DieselType = "Training_state"]
-pub enum TrainingState {
+#[DieselType = "Raid_state"]
+pub enum RaidState {
     Created,
     Open,
     Closed,
@@ -57,48 +57,48 @@ pub enum TrainingState {
     Finished,
 }
 
-impl fmt::Display for TrainingState {
+impl fmt::Display for RaidState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TrainingState::Created => write!(f, "created"),
-            TrainingState::Open => write!(f, "open"),
-            TrainingState::Closed => write!(f, "closed"),
-            TrainingState::Started => write!(f, "started"),
-            TrainingState::Finished => write!(f, "finished"),
+            RaidState::Created => write!(f, "created"),
+            RaidState::Open => write!(f, "open"),
+            RaidState::Closed => write!(f, "closed"),
+            RaidState::Started => write!(f, "started"),
+            RaidState::Finished => write!(f, "finished"),
         }
     }
 }
 
-impl str::FromStr for TrainingState {
+impl str::FromStr for RaidState {
     type Err = String;
 
-    fn from_str(input: &str) -> Result<TrainingState, Self::Err> {
+    fn from_str(input: &str) -> Result<RaidState, Self::Err> {
         match input {
-            "created" => Ok(TrainingState::Created),
-            "open" => Ok(TrainingState::Open),
-            "closed" => Ok(TrainingState::Closed),
-            "started" => Ok(TrainingState::Started),
-            "finished" => Ok(TrainingState::Finished),
-            e => Err(format!("unknown training state: {}", e)),
+            "created" => Ok(RaidState::Created),
+            "open" => Ok(RaidState::Open),
+            "closed" => Ok(RaidState::Closed),
+            "started" => Ok(RaidState::Started),
+            "finished" => Ok(RaidState::Finished),
+            e => Err(format!("unknown raid state: {}", e)),
         }
     }
 }
 
 #[derive(Identifiable, Queryable, Associations, PartialEq, Debug, Serialize, Clone)]
 #[belongs_to(Tier)]
-#[table_name = "trainings"]
-pub struct Training {
+#[table_name = "raids"]
+pub struct Raid {
     pub id: i32,
     pub title: String,
     pub date: NaiveDateTime,
-    pub state: TrainingState,
+    pub state: RaidState,
     pub tier_id: Option<i32>,
     pub board_message_id: Option<i64>,
 }
 
 #[derive(Insertable, Debug)]
-#[table_name = "trainings"]
-pub(super) struct NewTraining {
+#[table_name = "raids"]
+pub(super) struct NewRaid {
     pub title: String,
     pub date: NaiveDateTime,
     pub tier_id: Option<i32>,
@@ -142,19 +142,19 @@ pub(super) struct NewSignupRole {
 }
 
 #[derive(Identifiable, Queryable, Associations, PartialEq, Debug)]
-#[belongs_to(Training)]
+#[belongs_to(Raid)]
 #[belongs_to(Role)]
-#[table_name = "training_roles"]
-#[primary_key(training_id, role_id)]
-pub struct TrainingRole {
-    pub training_id: i32,
+#[table_name = "raid_roles"]
+#[primary_key(raid_id, role_id)]
+pub struct RaidRole {
+    pub raid_id: i32,
     pub role_id: i32,
 }
 
 #[derive(Insertable, Debug)]
-#[table_name = "training_roles"]
-pub(super) struct NewTrainingRole {
-    pub training_id: i32,
+#[table_name = "raid_roles"]
+pub(super) struct NewRaidRole {
+    pub raid_id: i32,
     pub role_id: i32,
 }
 
@@ -195,8 +195,8 @@ pub struct Config {
 }
 
 #[derive(Identifiable, Queryable, Associations, Hash, PartialEq, Eq, Debug, Serialize)]
-#[table_name = "training_bosses"]
-pub struct TrainingBoss {
+#[table_name = "raid_bosses"]
+pub struct RaidBoss {
     pub id: i32,
     pub repr: String,
     pub name: String,
@@ -207,8 +207,8 @@ pub struct TrainingBoss {
 }
 
 #[derive(Insertable, Associations, Debug)]
-#[table_name = "training_bosses"]
-pub struct NewTrainingBoss {
+#[table_name = "raid_bosses"]
+pub struct NewRaidBoss {
     pub repr: String,
     pub name: String,
     pub wing: i32,
@@ -218,8 +218,8 @@ pub struct NewTrainingBoss {
 }
 
 #[derive(Insertable, Queryable, Associations, Debug, Hash, PartialEq, Eq)]
-#[table_name = "training_boss_mappings"]
-pub struct TrainingBossMapping {
-    pub training_id: i32,
-    pub training_boss_id: i32,
+#[table_name = "raid_boss_mappings"]
+pub struct RaidBossMapping {
+    pub raid_id: i32,
+    pub raid_boss_id: i32,
 }

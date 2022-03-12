@@ -64,10 +64,10 @@ async fn upsert_user(ctx: &Context, user: NewUser) -> QueryResult<User> {
     .unwrap()
 }
 
-async fn insert_training(ctx: &Context, t: NewTraining) -> QueryResult<Training> {
+async fn insert_raid(ctx: &Context, t: NewRaid) -> QueryResult<Raid> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        diesel::insert_into(trainings::table)
+        diesel::insert_into(raids::table)
             .values(&t)
             .get_result(&pool.conn())
     })
@@ -97,10 +97,10 @@ async fn insert_tier(ctx: &Context, t: NewTier) -> QueryResult<Tier> {
     .unwrap()
 }
 
-async fn insert_training_role(ctx: &Context, tr: NewTrainingRole) -> QueryResult<TrainingRole> {
+async fn insert_raid_role(ctx: &Context, tr: NewRaidRole) -> QueryResult<RaidRole> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        diesel::insert_into(training_roles::table)
+        diesel::insert_into(raid_roles::table)
             .values(&tr)
             .get_result(&pool.conn())
     })
@@ -108,13 +108,13 @@ async fn insert_training_role(ctx: &Context, tr: NewTrainingRole) -> QueryResult
     .unwrap()
 }
 
-async fn insert_training_boss_mapping(
+async fn insert_raid_boss_mapping(
     ctx: &Context,
-    tbm: TrainingBossMapping,
-) -> QueryResult<TrainingBossMapping> {
+    tbm: RaidBossMapping,
+) -> QueryResult<RaidBossMapping> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        diesel::insert_into(training_boss_mappings::table)
+        diesel::insert_into(raid_boss_mappings::table)
             .values(&tbm)
             .get_result(&pool.conn())
     })
@@ -155,10 +155,10 @@ async fn insert_tier_mapping(ctx: &Context, tm: NewTierMapping) -> QueryResult<T
     .unwrap()
 }
 
-async fn insert_training_boss(ctx: &Context, tb: NewTrainingBoss) -> QueryResult<TrainingBoss> {
+async fn insert_raid_boss(ctx: &Context, tb: NewRaidBoss) -> QueryResult<RaidBoss> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        diesel::insert_into(training_bosses::table)
+        diesel::insert_into(raid_bosses::table)
             .values(tb)
             .get_result(&pool.conn())
     })
@@ -225,10 +225,10 @@ async fn delete_tier_mapping(
     .unwrap()
 }
 
-async fn delete_training_boss_by_id(ctx: &Context, id: i32) -> QueryResult<usize> {
+async fn delete_raid_boss_by_id(ctx: &Context, id: i32) -> QueryResult<usize> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        diesel::delete(training_bosses::table.find(id)).execute(&pool.conn())
+        diesel::delete(raid_bosses::table.find(id)).execute(&pool.conn())
     })
     .await
     .unwrap()
@@ -259,9 +259,9 @@ async fn select_users_with_signup_by_date(
 ) -> QueryResult<Vec<User>> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        let join = users::table.inner_join(signups::table.inner_join(trainings::table));
-        join.filter(trainings::date.ge(date.and_hms(0, 0, 0)))
-            .filter(trainings::date.le(date.and_hms(23, 59, 59)))
+        let join = users::table.inner_join(signups::table.inner_join(raids::table));
+        join.filter(raids::date.ge(date.and_hms(0, 0, 0)))
+            .filter(raids::date.le(date.and_hms(23, 59, 59)))
             .select(users::all_columns)
             .load(&pool.conn())
     })
@@ -274,7 +274,7 @@ async fn select_all_signups_by_user(ctx: &Context, user_id: i32) -> QueryResult<
     task::spawn_blocking(move || {
         let join = signups::table
             .inner_join(users::table)
-            .inner_join(trainings::table);
+            .inner_join(raids::table);
         join.filter(users::id.eq(user_id))
             .select(signups::all_columns)
             .load(&pool.conn())
@@ -283,46 +283,46 @@ async fn select_all_signups_by_user(ctx: &Context, user_id: i32) -> QueryResult<
     .unwrap()
 }
 
-async fn select_joined_active_trainings_by_user(
+async fn select_joined_active_raids_by_user(
     ctx: &Context,
     user_id: i32,
-) -> QueryResult<Vec<Training>> {
+) -> QueryResult<Vec<Raid>> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
         let join = signups::table
             .inner_join(users::table)
-            .inner_join(trainings::table);
+            .inner_join(raids::table);
         join.filter(users::id.eq(user_id))
             .filter(
-                trainings::state
-                    .eq(TrainingState::Open)
-                    .or(trainings::state.eq(TrainingState::Closed))
-                    .or(trainings::state.eq(TrainingState::Started)),
+                raids::state
+                    .eq(RaidState::Open)
+                    .or(raids::state.eq(RaidState::Closed))
+                    .or(raids::state.eq(RaidState::Started)),
             )
-            .select(trainings::all_columns)
+            .select(raids::all_columns)
             .load(&pool.conn())
     })
     .await
     .unwrap()
 }
 
-async fn select_active_signups_trainings_by_user(
+async fn select_active_signups_raids_by_user(
     ctx: &Context,
     user_id: i32,
-) -> QueryResult<Vec<(Signup, Training)>> {
+) -> QueryResult<Vec<(Signup, Raid)>> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
         let join = signups::table
             .inner_join(users::table)
-            .inner_join(trainings::table);
+            .inner_join(raids::table);
         join.filter(users::id.eq(user_id))
             .filter(
-                trainings::state
-                    .eq(TrainingState::Open)
-                    .or(trainings::state.eq(TrainingState::Closed))
-                    .or(trainings::state.eq(TrainingState::Started)),
+                raids::state
+                    .eq(RaidState::Open)
+                    .or(raids::state.eq(RaidState::Closed))
+                    .or(raids::state.eq(RaidState::Started)),
             )
-            .select((signups::all_columns, trainings::all_columns))
+            .select((signups::all_columns, raids::all_columns))
             .load(&pool.conn())
     })
     .await
@@ -334,13 +334,13 @@ async fn select_active_signups_by_user(ctx: &Context, user_id: i32) -> QueryResu
     task::spawn_blocking(move || {
         let join = signups::table
             .inner_join(users::table)
-            .inner_join(trainings::table);
+            .inner_join(raids::table);
         join.filter(users::id.eq(user_id))
             .filter(
-                trainings::state
-                    .eq(TrainingState::Open)
-                    .or(trainings::state.eq(TrainingState::Closed))
-                    .or(trainings::state.eq(TrainingState::Started)),
+                raids::state
+                    .eq(RaidState::Open)
+                    .or(raids::state.eq(RaidState::Closed))
+                    .or(raids::state.eq(RaidState::Started)),
             )
             .select(signups::all_columns)
             .load(&pool.conn())
@@ -354,9 +354,9 @@ async fn select_open_signups_by_user(ctx: &Context, user_id: i32) -> QueryResult
     task::spawn_blocking(move || {
         let join = signups::table
             .inner_join(users::table)
-            .inner_join(trainings::table);
+            .inner_join(raids::table);
         join.filter(users::id.eq(user_id))
-            .filter(trainings::state.eq(TrainingState::Open))
+            .filter(raids::state.eq(RaidState::Open))
             .select(signups::all_columns)
             .load(&pool.conn())
     })
@@ -364,89 +364,89 @@ async fn select_open_signups_by_user(ctx: &Context, user_id: i32) -> QueryResult
     .unwrap()
 }
 
-async fn select_training_by_id(ctx: &Context, id: i32) -> QueryResult<Training> {
+async fn select_raid_by_id(ctx: &Context, id: i32) -> QueryResult<Raid> {
     let pool = DBPool::load(ctx).await;
-    task::spawn_blocking(move || trainings::table.find(id).first(&pool.conn()))
+    task::spawn_blocking(move || raids::table.find(id).first(&pool.conn()))
         .await
         .unwrap()
 }
 
-async fn select_trainings_by_state(
+async fn select_raids_by_state(
     ctx: &Context,
-    state: TrainingState,
-) -> QueryResult<Vec<Training>> {
+    state: RaidState,
+) -> QueryResult<Vec<Raid>> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        trainings::table
-            .filter(trainings::state.eq(state))
+        raids::table
+            .filter(raids::state.eq(state))
             .load(&pool.conn())
     })
     .await
     .unwrap()
 }
 
-async fn select_training_by_id_and_state(
+async fn select_raid_by_id_and_state(
     ctx: &Context,
     id: i32,
-    state: TrainingState,
-) -> QueryResult<Training> {
+    state: RaidState,
+) -> QueryResult<Raid> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        trainings::table
+        raids::table
             .find(id)
-            .filter(trainings::state.eq(state))
-            .first::<Training>(&pool.conn())
+            .filter(raids::state.eq(state))
+            .first::<Raid>(&pool.conn())
     })
     .await
     .unwrap()
 }
 
-async fn select_active_trainings(ctx: &Context) -> QueryResult<Vec<Training>> {
+async fn select_active_raids(ctx: &Context) -> QueryResult<Vec<Raid>> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        trainings::table
+        raids::table
             .filter(
-                trainings::state
-                    .eq(TrainingState::Open)
-                    .or(trainings::state.eq(TrainingState::Closed))
-                    .or(trainings::state.eq(TrainingState::Started)),
+                raids::state
+                    .eq(RaidState::Open)
+                    .or(raids::state.eq(RaidState::Closed))
+                    .or(raids::state.eq(RaidState::Started)),
             )
-            .load::<Training>(&pool.conn())
+            .load::<Raid>(&pool.conn())
     })
     .await
     .unwrap()
 }
 
-async fn select_trainings_by_tier(ctx: &Context, id: i32) -> QueryResult<Vec<Training>> {
+async fn select_raids_by_tier(ctx: &Context, id: i32) -> QueryResult<Vec<Raid>> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        let join = trainings::table.inner_join(tiers::table);
+        let join = raids::table.inner_join(tiers::table);
         join.filter(tiers::id.eq(id))
-            .select(trainings::all_columns)
+            .select(raids::all_columns)
             .load(&pool.conn())
     })
     .await
     .unwrap()
 }
 
-async fn select_trainings_by_date(ctx: &Context, date: NaiveDate) -> QueryResult<Vec<Training>> {
+async fn select_raids_by_date(ctx: &Context, date: NaiveDate) -> QueryResult<Vec<Raid>> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        trainings::table
-            .filter(trainings::date.ge(date.and_hms(0, 0, 0)))
-            .filter(trainings::date.le(date.and_hms(23, 59, 59)))
-            .select(trainings::all_columns)
+        raids::table
+            .filter(raids::date.ge(date.and_hms(0, 0, 0)))
+            .filter(raids::date.le(date.and_hms(23, 59, 59)))
+            .select(raids::all_columns)
             .load(&pool.conn())
     })
     .await
     .unwrap()
 }
 
-async fn select_signups_by_training(ctx: &Context, id: i32) -> QueryResult<Vec<Signup>> {
+async fn select_signups_by_raid(ctx: &Context, id: i32) -> QueryResult<Vec<Signup>> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        let join = signups::table.inner_join(trainings::table);
-        join.filter(trainings::id.eq(id))
+        let join = signups::table.inner_join(raids::table);
+        join.filter(raids::id.eq(id))
             .select(signups::all_columns)
             .load(&pool.conn())
     })
@@ -457,9 +457,9 @@ async fn select_signups_by_training(ctx: &Context, id: i32) -> QueryResult<Vec<S
 async fn select_signups_by_date(ctx: &Context, date: NaiveDate) -> QueryResult<Vec<Signup>> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        let join = signups::table.inner_join(trainings::table);
-        join.filter(trainings::date.ge(date.and_hms(0, 0, 0)))
-            .filter(trainings::date.le(date.and_hms(23, 59, 59)))
+        let join = signups::table.inner_join(raids::table);
+        join.filter(raids::date.ge(date.and_hms(0, 0, 0)))
+            .filter(raids::date.le(date.and_hms(23, 59, 59)))
             .select(signups::all_columns)
             .load(&pool.conn())
     })
@@ -467,32 +467,32 @@ async fn select_signups_by_date(ctx: &Context, date: NaiveDate) -> QueryResult<V
     .unwrap()
 }
 
-async fn select_signup_by_user_and_training(
+async fn select_signup_by_user_and_raid(
     ctx: &Context,
     user_id: i32,
-    training_id: i32,
+    raid_id: i32,
 ) -> QueryResult<Signup> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
         signups::table
             .filter(signups::user_id.eq(user_id))
-            .filter(signups::training_id.eq(training_id))
+            .filter(signups::raid_id.eq(raid_id))
             .first(&pool.conn())
     })
     .await
     .unwrap()
 }
 
-async fn select_signup_by_discord_user_and_training(
+async fn select_signup_by_discord_user_and_raid(
     ctx: &Context,
     discord_id: i64,
-    training_id: i32,
+    raid_id: i32,
 ) -> QueryResult<Signup> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
         let join = signups::table.inner_join(users::table);
         join.filter(users::discord_id.eq(discord_id))
-            .filter(signups::training_id.eq(training_id))
+            .filter(signups::raid_id.eq(raid_id))
             .select(signups::all_columns)
             .first(&pool.conn())
     })
@@ -554,15 +554,15 @@ async fn select_tier_mappings_by_tier_and_discord_role(
     .unwrap()
 }
 
-async fn select_training_roles_by_training(
+async fn select_raid_roles_by_raid(
     ctx: &Context,
     id: i32,
-) -> QueryResult<Vec<TrainingRole>> {
+) -> QueryResult<Vec<RaidRole>> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        let join = training_roles::table.inner_join(trainings::table);
-        join.filter(trainings::id.eq(id))
-            .select(training_roles::all_columns)
+        let join = raid_roles::table.inner_join(raids::table);
+        join.filter(raids::id.eq(id))
+            .select(raid_roles::all_columns)
             .load(&pool.conn())
     })
     .await
@@ -606,13 +606,13 @@ async fn select_active_role_by_repr(ctx: &Context, repr: String) -> QueryResult<
     .unwrap()
 }
 
-async fn select_roles_by_training(ctx: &Context, id: i32) -> QueryResult<Vec<Role>> {
+async fn select_roles_by_raid(ctx: &Context, id: i32) -> QueryResult<Vec<Role>> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        let join = training_roles::table
-            .inner_join(trainings::table)
+        let join = raid_roles::table
+            .inner_join(raids::table)
             .inner_join(roles::table);
-        join.filter(trainings::id.eq(id))
+        join.filter(raids::id.eq(id))
             .select(roles::all_columns)
             .order_by(roles::priority.desc())
             .then_order_by(roles::title)
@@ -622,13 +622,13 @@ async fn select_roles_by_training(ctx: &Context, id: i32) -> QueryResult<Vec<Rol
     .unwrap()
 }
 
-async fn select_active_roles_by_training(ctx: &Context, id: i32) -> QueryResult<Vec<Role>> {
+async fn select_active_roles_by_raid(ctx: &Context, id: i32) -> QueryResult<Vec<Role>> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        let join = training_roles::table
-            .inner_join(trainings::table)
+        let join = raid_roles::table
+            .inner_join(raids::table)
             .inner_join(roles::table);
-        join.filter(trainings::id.eq(id))
+        join.filter(raids::id.eq(id))
             .filter(roles::active.eq(true))
             .select(roles::all_columns)
             .order_by(roles::priority.desc())
@@ -662,35 +662,35 @@ async fn select_config_by_name(ctx: &Context, name: String) -> QueryResult<Confi
         .unwrap()
 }
 
-async fn select_all_training_bosses(ctx: &Context) -> QueryResult<Vec<TrainingBoss>> {
+async fn select_all_raid_bosses(ctx: &Context) -> QueryResult<Vec<RaidBoss>> {
     let pool = DBPool::load(ctx).await;
-    task::spawn_blocking(move || training_bosses::table.load(&pool.conn()))
+    task::spawn_blocking(move || raid_bosses::table.load(&pool.conn()))
         .await
         .unwrap()
 }
 
-async fn select_training_boss_by_repr(ctx: &Context, repr: String) -> QueryResult<TrainingBoss> {
+async fn select_raid_boss_by_repr(ctx: &Context, repr: String) -> QueryResult<RaidBoss> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        training_bosses::table
-            .filter(training_bosses::repr.eq(repr))
+        raid_bosses::table
+            .filter(raid_bosses::repr.eq(repr))
             .first(&pool.conn())
     })
     .await
     .unwrap()
 }
 
-async fn select_training_bosses_by_training(
+async fn select_raid_bosses_by_raid(
     ctx: &Context,
     id: i32,
-) -> QueryResult<Vec<TrainingBoss>> {
+) -> QueryResult<Vec<RaidBoss>> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        training_boss_mappings::table
-            .inner_join(trainings::table)
-            .inner_join(training_bosses::table)
-            .filter(trainings::id.eq(id))
-            .select(training_bosses::all_columns)
+        raid_boss_mappings::table
+            .inner_join(raids::table)
+            .inner_join(raid_bosses::table)
+            .filter(raids::id.eq(id))
+            .select(raid_bosses::all_columns)
             .load(&pool.conn())
     })
     .await
@@ -698,11 +698,11 @@ async fn select_training_bosses_by_training(
 }
 
 // Count
-async fn count_trainings_by_state(ctx: &Context, state: TrainingState) -> QueryResult<i64> {
+async fn count_raids_by_state(ctx: &Context, state: RaidState) -> QueryResult<i64> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        trainings::table
-            .filter(trainings::state.eq(state))
+        raids::table
+            .filter(raids::state.eq(state))
             .count()
             .get_result(&pool.conn())
     })
@@ -710,11 +710,11 @@ async fn count_trainings_by_state(ctx: &Context, state: TrainingState) -> QueryR
     .unwrap()
 }
 
-async fn count_signups_by_training(ctx: &Context, training_id: i32) -> QueryResult<i64> {
+async fn count_signups_by_raid(ctx: &Context, raid_id: i32) -> QueryResult<i64> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
         signups::table
-            .filter(signups::training_id.eq(training_id))
+            .filter(signups::raid_id.eq(raid_id))
             .count()
             .get_result(&pool.conn())
     })
@@ -722,17 +722,17 @@ async fn count_signups_by_training(ctx: &Context, training_id: i32) -> QueryResu
     .unwrap()
 }
 
-async fn count_active_trainings_by_date(ctx: &Context, date: NaiveDate) -> QueryResult<i64> {
+async fn count_active_raids_by_date(ctx: &Context, date: NaiveDate) -> QueryResult<i64> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        trainings::table
-            .filter(trainings::date.ge(date.and_hms(0, 0, 0)))
-            .filter(trainings::date.le(date.and_hms(23, 59, 59)))
+        raids::table
+            .filter(raids::date.ge(date.and_hms(0, 0, 0)))
+            .filter(raids::date.le(date.and_hms(23, 59, 59)))
             .filter(
-                trainings::state
-                    .eq(TrainingState::Open)
-                    .or(trainings::state.eq(TrainingState::Closed))
-                    .or(trainings::state.eq(TrainingState::Started)),
+                raids::state
+                    .eq(RaidState::Open)
+                    .or(raids::state.eq(RaidState::Closed))
+                    .or(raids::state.eq(RaidState::Started)),
             )
             .count()
             .get_result(&pool.conn())
@@ -742,45 +742,45 @@ async fn count_active_trainings_by_date(ctx: &Context, date: NaiveDate) -> Query
 }
 
 // Update
-async fn update_training_state(
+async fn update_raid_state(
     ctx: &Context,
     id: i32,
-    state: TrainingState,
-) -> QueryResult<Training> {
+    state: RaidState,
+) -> QueryResult<Raid> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        diesel::update(trainings::table.find(id))
-            .set(trainings::state.eq(state))
+        diesel::update(raids::table.find(id))
+            .set(raids::state.eq(state))
             .get_result(&pool.conn())
     })
     .await
     .unwrap()
 }
 
-async fn update_training_tier(
+async fn update_raid_tier(
     ctx: &Context,
     id: i32,
     tier_id: Option<i32>,
-) -> QueryResult<Training> {
+) -> QueryResult<Raid> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        diesel::update(trainings::table.find(id))
-            .set(trainings::tier_id.eq(tier_id))
+        diesel::update(raids::table.find(id))
+            .set(raids::tier_id.eq(tier_id))
             .get_result(&pool.conn())
     })
     .await
     .unwrap()
 }
 
-async fn update_training_board_message(
+async fn update_raid_board_message(
     ctx: &Context,
     id: i32,
     msg_id: Option<i64>,
-) -> QueryResult<Training> {
+) -> QueryResult<Raid> {
     let pool = DBPool::load(ctx).await;
     task::spawn_blocking(move || {
-        diesel::update(trainings::table.find(id))
-            .set(trainings::board_message_id.eq(msg_id))
+        diesel::update(raids::table.find(id))
+            .set(raids::board_message_id.eq(msg_id))
             .get_result(&pool.conn())
     })
     .await
@@ -831,15 +831,15 @@ impl User {
         select_user_by_discord_id(ctx, *id.as_u64()).await
     }
 
-    pub async fn joined_active_trainings(&self, ctx: &Context) -> QueryResult<Vec<Training>> {
-        select_joined_active_trainings_by_user(ctx, self.id).await
+    pub async fn joined_active_raids(&self, ctx: &Context) -> QueryResult<Vec<Raid>> {
+        select_joined_active_raids_by_user(ctx, self.id).await
     }
 
-    pub async fn active_signups_with_training(
+    pub async fn active_signups_with_raid(
         &self,
         ctx: &Context,
-    ) -> QueryResult<Vec<(Signup, Training)>> {
-        select_active_signups_trainings_by_user(ctx, self.id).await
+    ) -> QueryResult<Vec<(Signup, Raid)>> {
+        select_active_signups_raids_by_user(ctx, self.id).await
     }
 
     pub async fn active_signups(&self, ctx: &Context) -> QueryResult<Vec<Signup>> {
@@ -859,60 +859,60 @@ impl User {
     }
 }
 
-/* -- Training -- */
-impl Training {
+/* -- Raid -- */
+impl Raid {
     pub async fn insert(
         ctx: &Context,
         title: String,
         date: NaiveDateTime,
         tier_id: Option<i32>,
-    ) -> QueryResult<Training> {
-        let t = NewTraining {
+    ) -> QueryResult<Raid> {
+        let t = NewRaid {
             title,
             date,
             tier_id,
         };
-        insert_training(ctx, t).await
+        insert_raid(ctx, t).await
     }
 
-    pub async fn by_state(ctx: &Context, state: TrainingState) -> QueryResult<Vec<Training>> {
-        select_trainings_by_state(ctx, state).await
+    pub async fn by_state(ctx: &Context, state: RaidState) -> QueryResult<Vec<Raid>> {
+        select_raids_by_state(ctx, state).await
     }
 
-    pub async fn all_active(ctx: &Context) -> QueryResult<Vec<Training>> {
-        select_active_trainings(ctx).await
+    pub async fn all_active(ctx: &Context) -> QueryResult<Vec<Raid>> {
+        select_active_raids(ctx).await
     }
 
-    pub async fn amount_by_state(ctx: &Context, state: TrainingState) -> QueryResult<i64> {
-        count_trainings_by_state(ctx, state).await
+    pub async fn amount_by_state(ctx: &Context, state: RaidState) -> QueryResult<i64> {
+        count_raids_by_state(ctx, state).await
     }
 
     pub async fn amount_active_by_day(ctx: &Context, date: NaiveDate) -> QueryResult<i64> {
-        count_active_trainings_by_date(ctx, date).await
+        count_active_raids_by_date(ctx, date).await
     }
 
     pub async fn get_signup_count(&self, ctx: &Context) -> QueryResult<i64> {
-        count_signups_by_training(ctx, self.id).await
+        count_signups_by_raid(ctx, self.id).await
     }
 
-    pub async fn by_id(ctx: &Context, id: i32) -> QueryResult<Training> {
-        select_training_by_id(ctx, id).await
+    pub async fn by_id(ctx: &Context, id: i32) -> QueryResult<Raid> {
+        select_raid_by_id(ctx, id).await
     }
 
     pub async fn by_id_and_state(
         ctx: &Context,
         id: i32,
-        state: TrainingState,
-    ) -> QueryResult<Training> {
-        select_training_by_id_and_state(ctx, id, state).await
+        state: RaidState,
+    ) -> QueryResult<Raid> {
+        select_raid_by_id_and_state(ctx, id, state).await
     }
 
-    pub async fn by_date(ctx: &Context, date: NaiveDate) -> QueryResult<Vec<Training>> {
-        select_trainings_by_date(ctx, date).await
+    pub async fn by_date(ctx: &Context, date: NaiveDate) -> QueryResult<Vec<Raid>> {
+        select_raids_by_date(ctx, date).await
     }
 
-    pub async fn set_state(self, ctx: &Context, state: TrainingState) -> QueryResult<Training> {
-        update_training_state(ctx, self.id, state).await
+    pub async fn set_state(self, ctx: &Context, state: RaidState) -> QueryResult<Raid> {
+        update_raid_state(ctx, self.id, state).await
     }
 
     pub async fn get_tier(&self, ctx: &Context) -> Option<QueryResult<Tier>> {
@@ -922,53 +922,53 @@ impl Training {
         }
     }
 
-    pub async fn set_tier(&self, ctx: &Context, tier_id: Option<i32>) -> QueryResult<Training> {
-        update_training_tier(ctx, self.id, tier_id).await
+    pub async fn set_tier(&self, ctx: &Context, tier_id: Option<i32>) -> QueryResult<Raid> {
+        update_raid_tier(ctx, self.id, tier_id).await
     }
 
     pub async fn get_signups(&self, ctx: &Context) -> QueryResult<Vec<Signup>> {
-        select_signups_by_training(ctx, self.id).await
+        select_signups_by_raid(ctx, self.id).await
     }
 
-    pub async fn add_role(&self, ctx: &Context, role_id: i32) -> QueryResult<TrainingRole> {
-        let training_role = NewTrainingRole {
-            training_id: self.id,
+    pub async fn add_role(&self, ctx: &Context, role_id: i32) -> QueryResult<RaidRole> {
+        let raid_role = NewRaidRole {
+            raid_id: self.id,
             role_id,
         };
-        insert_training_role(ctx, training_role).await
+        insert_raid_role(ctx, raid_role).await
     }
 
-    pub async fn add_training_boss(
+    pub async fn add_raid_boss(
         &self,
         ctx: &Context,
-        training_boss_id: i32,
-    ) -> QueryResult<TrainingBossMapping> {
-        let mapping = TrainingBossMapping {
-            training_id: self.id,
-            training_boss_id,
+        raid_boss_id: i32,
+    ) -> QueryResult<RaidBossMapping> {
+        let mapping = RaidBossMapping {
+            raid_id: self.id,
+            raid_boss_id,
         };
 
-        insert_training_boss_mapping(ctx, mapping).await
+        insert_raid_boss_mapping(ctx, mapping).await
     }
 
-    pub async fn get_training_roles(&self, ctx: &Context) -> QueryResult<Vec<TrainingRole>> {
-        select_training_roles_by_training(ctx, self.id).await
+    pub async fn get_raid_roles(&self, ctx: &Context) -> QueryResult<Vec<RaidRole>> {
+        select_raid_roles_by_raid(ctx, self.id).await
     }
 
     pub async fn all_roles(&self, ctx: &Context) -> QueryResult<Vec<Role>> {
-        select_roles_by_training(ctx, self.id).await
+        select_roles_by_raid(ctx, self.id).await
     }
 
-    pub async fn all_training_bosses(&self, ctx: &Context) -> QueryResult<Vec<TrainingBoss>> {
-        select_training_bosses_by_training(ctx, self.id).await
+    pub async fn all_raid_bosses(&self, ctx: &Context) -> QueryResult<Vec<RaidBoss>> {
+        select_raid_bosses_by_raid(ctx, self.id).await
     }
 
     pub async fn active_roles(&self, ctx: &Context) -> QueryResult<Vec<Role>> {
-        select_active_roles_by_training(ctx, self.id).await
+        select_active_roles_by_raid(ctx, self.id).await
     }
 
-    pub async fn set_board_msg(&self, ctx: &Context, msg_id: Option<u64>) -> QueryResult<Training> {
-        update_training_board_message(ctx, self.id, msg_id.map(|id| id as i64)).await
+    pub async fn set_board_msg(&self, ctx: &Context, msg_id: Option<u64>) -> QueryResult<Raid> {
+        update_raid_board_message(ctx, self.id, msg_id.map(|id| id as i64)).await
     }
 
     pub fn board_message(&self) -> Option<MessageId> {
@@ -978,10 +978,10 @@ impl Training {
 
 /* -- Signup -- */
 impl Signup {
-    pub async fn insert(ctx: &Context, user: &User, training: &Training) -> QueryResult<Self> {
+    pub async fn insert(ctx: &Context, user: &User, raid: &Raid) -> QueryResult<Self> {
         let new_signup = NewSignup {
             user_id: user.id,
-            training_id: training.id,
+            raid_id: raid.id,
         };
         insert_signup(ctx, new_signup).await
     }
@@ -1002,8 +1002,8 @@ impl Signup {
         update_signup_comment(ctx, self.id, comment).await
     }
 
-    pub async fn get_training(&self, ctx: &Context) -> QueryResult<Training> {
-        select_training_by_id(ctx, self.training_id).await
+    pub async fn get_raid(&self, ctx: &Context) -> QueryResult<Raid> {
+        select_raid_by_id(ctx, self.raid_id).await
     }
 
     pub async fn get_user(&self, ctx: &Context) -> QueryResult<User> {
@@ -1018,20 +1018,20 @@ impl Signup {
         delete_signup_roles_by_signup(ctx, self.id).await
     }
 
-    pub async fn by_user_and_training(
+    pub async fn by_user_and_raid(
         ctx: &Context,
         u: &User,
-        t: &Training,
+        t: &Raid,
     ) -> QueryResult<Signup> {
-        select_signup_by_user_and_training(ctx, u.id, t.id).await
+        select_signup_by_user_and_raid(ctx, u.id, t.id).await
     }
 
-    pub async fn by_discord_user_and_training(
+    pub async fn by_discord_user_and_raid(
         ctx: &Context,
         u: &UserId,
-        t: &Training,
+        t: &Raid,
     ) -> QueryResult<Signup> {
-        select_signup_by_discord_user_and_training(ctx, *u.as_u64() as i64, t.id).await
+        select_signup_by_discord_user_and_raid(ctx, *u.as_u64() as i64, t.id).await
     }
 
     pub async fn by_date(ctx: &Context, date: NaiveDate) -> QueryResult<Vec<Signup>> {
@@ -1137,8 +1137,8 @@ impl Tier {
         select_tier_mappings_by_tier_and_discord_role(ctx, self.id, role_id as i64).await
     }
 
-    pub async fn get_trainings(&self, ctx: &Context) -> QueryResult<Vec<Training>> {
-        select_trainings_by_tier(ctx, self.id).await
+    pub async fn get_raids(&self, ctx: &Context) -> QueryResult<Vec<Raid>> {
+        select_raids_by_tier(ctx, self.id).await
     }
 }
 
@@ -1160,7 +1160,7 @@ impl Config {
     }
 }
 
-impl TrainingBoss {
+impl RaidBoss {
     pub async fn insert(
         ctx: &Context,
         name: String,
@@ -1170,7 +1170,7 @@ impl TrainingBoss {
         emoji: EmojiId,
         url: Option<Url>,
     ) -> QueryResult<Self> {
-        let tb = NewTrainingBoss {
+        let tb = NewRaidBoss {
             name,
             repr,
             wing,
@@ -1179,23 +1179,23 @@ impl TrainingBoss {
             url: url.map(|u| u.to_string()),
         };
 
-        insert_training_boss(ctx, tb).await
+        insert_raid_boss(ctx, tb).await
     }
 
     pub async fn all(ctx: &Context) -> QueryResult<Vec<Self>> {
-        select_all_training_bosses(ctx).await
+        select_all_raid_bosses(ctx).await
     }
 
     pub async fn by_repr(ctx: &Context, repr: String) -> QueryResult<Self> {
-        select_training_boss_by_repr(ctx, repr).await
+        select_raid_boss_by_repr(ctx, repr).await
     }
 
     pub async fn delete(&self, ctx: &Context) -> QueryResult<usize> {
-        delete_training_boss_by_id(ctx, self.id).await
+        delete_raid_boss_by_id(ctx, self.id).await
     }
 }
 
-impl std::fmt::Display for TrainingBoss {
+impl std::fmt::Display for RaidBoss {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(url) = &self.url {
             write!(

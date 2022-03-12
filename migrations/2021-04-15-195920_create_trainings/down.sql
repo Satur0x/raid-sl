@@ -1,3 +1,3 @@
 -- This file should undo anything in `up.sql`
-DROP TABLE trainings;
-DROP TYPE training_state;
+DROP TABLE raids;
+DROP TYPE raid_state;

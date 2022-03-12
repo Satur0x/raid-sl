@@ -23,12 +23,12 @@ use crate::{
     logging::{log_discord, LogTrace, ReplyHelper},
 };
 
-pub(super) const CMD_TRAINING_TIER: &str = "training_tier";
+pub(super) const CMD_RAID_TIER: &str = "raid_tier";
 
 pub fn create() -> CreateApplicationCommand {
     let mut app = CreateApplicationCommand::default();
-    app.name(CMD_TRAINING_TIER);
-    app.description("Training tier configurations");
+    app.name(CMD_RAID_TIER);
+    app.description("Raid tier configurations");
     app.default_permission(false);
     app.create_option(|o| {
         o.kind(ApplicationCommandOptionType::SubCommand);

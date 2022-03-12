@@ -21,7 +21,7 @@ use url::Url;
 
 use crate::{
     data::ConfigValuesData,
-    db::{self, TrainingBoss},
+    db::{self, RaidBoss},
     embeds::CrossroadsEmbeds,
     logging::*,
 };
@@ -35,12 +35,12 @@ use serenity_tools::{
 
 use super::helpers::command_map;
 
-pub(super) const CMD_TRAINING_BOSS: &str = "training_boss";
+pub(super) const CMD_RAID_BOSS: &str = "raid_boss";
 
 pub fn create() -> CreateApplicationCommand {
     let mut app = CreateApplicationCommand::default();
-    app.name(CMD_TRAINING_BOSS);
-    app.description("Manage bosses for training");
+    app.name(CMD_RAID_BOSS);
+    app.description("Manage bosses for raid");
     app.default_permission(false);
     app.create_option(|o| {
         o.kind(ApplicationCommandOptionType::SubCommand);
@@ -236,7 +236,7 @@ async fn add(
         r.interaction_response_data(|d| {
             d.flags(InteractionApplicationCommandCallbackDataFlags::EPHEMERAL);
             let mut emb = CreateEmbed::xdefault();
-            emb.title("New Training Boss");
+            emb.title("New Raid Boss");
             emb.field("Name", &name, false);
             emb.field("Repr", &repr, true);
             emb.field("Wing", wing, true);
@@ -265,7 +265,7 @@ async fn add(
         match react.parse_button()? {
             Button::Confirm => {
                 trace.step("Confirmed, inserting to database");
-                let boss = db::TrainingBoss::insert(ctx, name, repr, wing, position, emoji_id, url)
+                let boss = db::RaidBoss::insert(ctx, name, repr, wing, position, emoji_id, url)
                     .await
                     .map_err_reply(|what| aci.edit_quick_error(ctx, what))
                     .await?;
@@ -303,7 +303,7 @@ async fn remove(
         .await?;
 
     trace.step("Loading boss");
-    let boss = match db::TrainingBoss::by_repr(ctx, boss_repr.to_string()).await {
+    let boss = match db::RaidBoss::by_repr(ctx, boss_repr.to_string()).await {
         Ok(o) => o,
         Err(diesel::NotFound) => {
             Err(diesel::NotFound)
@@ -337,17 +337,17 @@ async fn list(
     _option: &ApplicationCommandInteractionDataOption,
     trace: LogTrace,
 ) -> Result<()> {
-    trace.step("Loading training bosses");
-    let mut bosses = db::TrainingBoss::all(ctx)
+    trace.step("Loading raid bosses");
+    let mut bosses = db::RaidBoss::all(ctx)
         .await
-        .context("Failed to load training bosses =(")
+        .context("Failed to load raid bosses =(")
         .map_err_reply(|what| aci.create_quick_error(ctx, what, true))
         .await?;
 
     trace.step("Sorting bosses");
 
     bosses.sort_by_key(|b| b.wing);
-    let mut bosses_grouped: Vec<(i32, Vec<TrainingBoss>)> = Vec::new();
+    let mut bosses_grouped: Vec<(i32, Vec<RaidBoss>)> = Vec::new();
     for (w, b) in &bosses.into_iter().group_by(|b| b.wing) {
         bosses_grouped.push((w, b.collect()));
     }

@@ -141,17 +141,17 @@ pub(crate) async fn interaction(
             }
             Err(e) => bail!(e),
         };
-        let trainings_all = db::Training::all_active(ctx).await?;
-        let mut trainings: Vec<db::Training> = Vec::with_capacity(trainings_all.len());
+        let raids_all = db::Raid::all_active(ctx).await?;
+        let mut raids: Vec<db::Raid> = Vec::with_capacity(raids_all.len());
 
-        for training in trainings_all {
-            // filter for trainings user can join
-            let tier = training.get_tier(ctx).await.transpose()?;
+        for raid in raids_all {
+            // filter for raids user can join
+            let tier = raid.get_tier(ctx).await.transpose()?;
             let tier_roles = match &tier {
                 Some(t) => Some(t.get_discord_roles(ctx).await?),
                 None => None,
             };
-            // check if user can join the training
+            // check if user can join the raid
             let can_join = if let Some(tier_roles) = tier_roles {
                 let mut cj = false;
                 for tr in tier_roles {
@@ -175,34 +175,34 @@ pub(crate) async fn interaction(
                 continue;
             }
 
-            // Add training to selection options
-            trainings.push(training);
+            // Add raid to selection options
+            raids.push(raid);
         }
 
-        if trainings.is_empty() {
-            trace.step("No training's available");
+        if raids.is_empty() {
+            trace.step("No raid's available");
             mci.edit_quick_info(
                 ctx,
-                "There currently are no training options available for you =(",
+                "There currently are no raid options available for you =(",
             )
             .await?;
             return Ok(());
         }
 
-        // Sort trainings -> splitted trainings will also be sorted
-        trainings.sort_by_key(|b| Reverse(title_sort_value(b)));
-        trainings.sort_by_key(|t| t.date);
+        // Sort raids -> splitted raids will also be sorted
+        raids.sort_by_key(|b| Reverse(title_sort_value(b)));
+        raids.sort_by_key(|t| t.date);
 
         let signups = db_user.active_signups(ctx).await?;
-        let mut joined: Vec<&db::Training> = Vec::with_capacity(trainings.len());
-        let mut not_joined: Vec<&db::Training> = Vec::with_capacity(trainings.len());
+        let mut joined: Vec<&db::Raid> = Vec::with_capacity(raids.len());
+        let mut not_joined: Vec<&db::Raid> = Vec::with_capacity(raids.len());
 
-        for t in &trainings {
-            if signups.iter().map(|s| s.training_id).contains(&t.id) {
+        for t in &raids {
+            if signups.iter().map(|s| s.raid_id).contains(&t.id) {
                 joined.push(t);
             } else {
-                // only show trainings still open for not yet joined
-                if t.state == db::TrainingState::Open {
+                // only show raids still open for not yet joined
+                if t.state == db::RaidState::Open {
                     not_joined.push(t);
                 }
             }
@@ -217,7 +217,7 @@ pub(crate) async fn interaction(
         for (d, v) in joined.iter().group_by(|t| t.date.date()).into_iter() {
             joined_str.push_str(&format!("```\n{}\n\n", d.format("%A, %v")));
             for t in v {
-                if t.state == db::TrainingState::Open {
+                if t.state == db::RaidState::Open {
                     joined_str.push_str(&format!("> {}\n", &t.title));
                 } else {
                     joined_str.push_str(&format!("> {} 🔒\n", &t.title));
@@ -229,10 +229,10 @@ pub(crate) async fn interaction(
             emb.field("**✅ Already signed up for**", joined_str, false);
         };
 
-        // now filter out non open training's to not offer them in the select menu
+        // now filter out non open raid's to not offer them in the select menu
         joined = joined
             .into_iter()
-            .filter(|t| t.state == db::TrainingState::Open)
+            .filter(|t| t.state == db::RaidState::Open)
             .collect();
 
         let mut not_joined_str = String::new();
@@ -248,14 +248,14 @@ pub(crate) async fn interaction(
         };
 
         emb.field("🤔 How to",
-            "```To sign up, sign out or to edit your sign-up simply select the training from the select menu below\n\n\
+            "```To sign up, sign out or to edit your sign-up simply select the raid from the select menu below\n\n\
             📝 => Sign out or edit your existing sign-up\n\
-            🟢 => Sign up for this training\n```",
+            🟢 => Sign up for this raid\n```",
             false);
 
         let mut select_menu = CreateSelectMenu::default();
-        select_menu.custom_id("_user_training_select");
-        select_menu.placeholder("Select a training to continue");
+        select_menu.custom_id("_user_raid_select");
+        select_menu.placeholder("Select a raid to continue");
         select_menu.options(|opts| {
             for t in &joined {
                 opts.create_option(|o| {
@@ -303,7 +303,7 @@ pub(crate) async fn interaction(
             .data
             .values
             .get(0)
-            .context("Unexpected missing value on training select menu. Aborted")
+            .context("Unexpected missing value on raid select menu. Aborted")
             .map_err_reply(|what| mci.edit_quick_error(ctx, what))
             .await?
             .parse::<i32>()
@@ -311,17 +311,17 @@ pub(crate) async fn interaction(
             .map_err_reply(|what| mci.edit_quick_error(ctx, what))
             .await?;
 
-        let selected = trainings
+        let selected = raids
             .iter()
             .find(|t| t.id == selected_id)
-            .context("Unexpected mismatch of selected training and available ones. Aborted")
+            .context("Unexpected mismatch of selected raid and available ones. Aborted")
             .map_err_reply(|what| mci.edit_quick_error(ctx, what))
             .await?;
 
         if joined.iter().any(|t| t.id == selected.id) {
             let signup = signups
                 .into_iter()
-                .find(|s| s.training_id == selected.id)
+                .find(|s| s.raid_id == selected.id)
                 .context("Unexpected missing signup. Aborted")
                 .map_err_reply(|what| mci.edit_quick_info(ctx, what))
                 .await?;
@@ -350,13 +350,13 @@ async fn edit(
     ctx: &Context,
     mut mci: Arc<MessageComponentInteraction>,
     msg: &mut Message,
-    training: &db::Training,
+    raid: &db::Raid,
     mut signup: db::Signup,
     trace: LogTrace,
 ) -> Result<Arc<MessageComponentInteraction>> {
     trace.step("Signup edit");
-    let bosses = training.all_training_bosses(ctx).await?;
-    let roles = training.all_roles(ctx).await?;
+    let bosses = raid.all_raid_bosses(ctx).await?;
+    let roles = raid.all_roles(ctx).await?;
 
     // Current selected roles by user
     let mut curr_roles: Vec<_> = signup
@@ -369,8 +369,8 @@ async fn edit(
     // TODO load already selected preferred bosses once we support it
 
     let mut base_emb = CreateEmbed::xdefault();
-    base_emb.title(&training.title);
-    let (a, b, c) = embeds::field_training_date(training);
+    base_emb.title(&raid.title);
+    let (a, b, c) = embeds::field_raid_date(raid);
     base_emb.field(a, b, c);
     base_emb.description("✅ You are signed up\n**Feel free to dismiss this message**");
 
@@ -596,11 +596,11 @@ async fn join(
     mci: Arc<MessageComponentInteraction>,
     msg: &mut Message,
     db_user: &db::User,
-    training: &db::Training,
+    raid: &db::Raid,
     trace: LogTrace,
 ) -> Result<Arc<MessageComponentInteraction>> {
     trace.step("New Signup");
-    let roles = training.all_roles(ctx).await?;
+    let roles = raid.all_roles(ctx).await?;
     let mut selector = UpdatAbleMessage::ComponentInteraction(&mci, msg);
     let mut selector_conf = PagedSelectorConfig::default();
     selector_conf
@@ -611,8 +611,8 @@ async fn join(
     let mut emb = CreateEmbed::xdefault();
     emb.title("Select your role(s)");
     emb.field(
-        &training.title,
-        format!("<t:{}>", training.date.timestamp()),
+        &raid.title,
+        format!("<t:{}>", raid.date.timestamp()),
         false,
     );
     selector_conf.base_embed(emb);
@@ -638,7 +638,7 @@ async fn join(
     .into_iter()
     .collect::<Vec<_>>();
 
-    let signup = db::Signup::insert(ctx, db_user, training)
+    let signup = db::Signup::insert(ctx, db_user, raid)
         .await
         .context("Failed to create signup")
         .map_err_reply(|what| mci.edit_quick_error(ctx, what))
@@ -653,6 +653,6 @@ async fn join(
             .await?;
     }
 
-    let mci = edit(ctx, mci, msg, training, signup, trace).await?;
+    let mci = edit(ctx, mci, msg, raid, signup, trace).await?;
     Ok(mci)
 }

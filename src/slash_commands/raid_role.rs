@@ -20,16 +20,16 @@ use serenity_tools::{builder::CreateEmbedExt, interactions::ApplicationCommandIn
 
 use crate::{data::ConfigValuesData, db, embeds::CrossroadsEmbeds, logging::*};
 
-pub(super) const CMD_TRAINING_ROLE: &str = "training_role";
+pub(super) const CMD_RAID_ROLE: &str = "raid_role";
 pub fn create() -> CreateApplicationCommand {
     let mut app = CreateApplicationCommand::default();
-    app.name(CMD_TRAINING_ROLE);
+    app.name(CMD_RAID_ROLE);
     app.description("Testing");
     app.default_permission(false);
     app.create_option(|o| {
         o.kind(ApplicationCommandOptionType::SubCommand);
         o.name("add");
-        o.description("Add a new training role");
+        o.description("Add a new raid role");
         o.create_sub_option(|o| {
             o.kind(ApplicationCommandOptionType::String);
             o.name("name");
@@ -65,7 +65,7 @@ pub fn create() -> CreateApplicationCommand {
     app.create_option(|o| {
         o.kind(ApplicationCommandOptionType::SubCommand);
         o.name("remove");
-        o.description("Remove a role. This only deactivates the role for future training's. Old training's are not affected");
+        o.description("Remove a role. This only deactivates the role for future raid's. Old raid's are not affected");
         o.create_sub_option(|o| {
             o.kind(ApplicationCommandOptionType::String);
             o.name("repr");
@@ -76,7 +76,7 @@ pub fn create() -> CreateApplicationCommand {
     app.create_option(|o| {
         o.kind(ApplicationCommandOptionType::SubCommand);
         o.name("list");
-        o.description("List all available training roles")
+        o.description("List all available raid roles")
     });
     app
 }
@@ -180,7 +180,7 @@ async fn add(
     };
 
     trace.step("Saving role");
-    let training_role = db::Role::insert(
+    let raid_role = db::Role::insert(
         ctx,
         name.to_string(),
         repr.to_string(),
@@ -191,7 +191,7 @@ async fn add(
     .map_err_reply(|what| aci.create_quick_error(ctx, what, true))
     .await?;
 
-    aci.create_quick_success(ctx, format!("New Role {}", training_role), true)
+    aci.create_quick_success(ctx, format!("New Role {}", raid_role), true)
         .await?;
 
     Ok(())
@@ -262,7 +262,7 @@ async fn list(ctx: &Context, aci: &ApplicationCommandInteraction, trace: LogTrac
         true,
         10,
     );
-    emb.title("Training Roles");
+    emb.title("Raid Roles");
 
     aci.create_interaction_response(ctx, |r| {
         r.kind(InteractionResponseType::ChannelMessageWithSource);

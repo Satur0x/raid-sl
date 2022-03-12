@@ -26,7 +26,7 @@ pub(super) const CMD_REGISTER: &str = "register";
 pub fn create_reg() -> CreateApplicationCommand {
     let mut app = CreateApplicationCommand::default();
     app.name(CMD_REGISTER);
-    app.description("Register with to bot to sign up for training's");
+    app.description("Register with to bot to sign up for raid's");
     app.create_option(|o| {
         o.kind(ApplicationCommandOptionType::String);
         o.name("gw2_account");

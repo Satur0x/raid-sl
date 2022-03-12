@@ -3,7 +3,7 @@ use std::{borrow::Cow, collections::HashMap, time::Duration};
 use super::helpers::*;
 use crate::{
     data,
-    db::{self, Tier, TrainingState},
+    db::{self, Tier, RaidState},
     embeds::{embed_add_roles, CrossroadsEmbeds},
     logging::*,
     signup_board, status,
@@ -43,22 +43,22 @@ use serenity_tools::{
 
 type MessageFlags = InteractionApplicationCommandCallbackDataFlags;
 
-pub(super) const CMD_TRAINING: &str = "training";
+pub(super) const CMD_RAID: &str = "raid";
 const CHECK_EMOJI: char = '✅';
 
 pub fn create() -> CreateApplicationCommand {
     let mut app = CreateApplicationCommand::default();
-    app.name(CMD_TRAINING);
-    app.description("Manage trainings");
+    app.name(CMD_RAID);
+    app.description("Manage raids");
     app.default_permission(false);
     app.create_option(|o| {
         o.kind(ApplicationCommandOptionType::SubCommand);
         o.name("add");
-        o.description("Add a new Training");
+        o.description("Add a new Raid");
         o.create_sub_option(|o| {
             o.kind(ApplicationCommandOptionType::String);
             o.name("name");
-            o.description("The name of the training");
+            o.description("The name of the raid");
             o.required(true)
         });
         o.create_sub_option(|o| {
@@ -76,25 +76,25 @@ pub fn create() -> CreateApplicationCommand {
         o.create_sub_option(|o| {
             o.kind(ApplicationCommandOptionType::String);
             o.name("roles");
-            o.description("The roles available for the training. Comma separated list of repr's. Example: dps,druid,qfb");
+            o.description("The roles available for the raid. Comma separated list of repr's. Example: dps,druid,qfb");
             o.required(true)
         });
         o.create_sub_option(|o| {
             o.kind(ApplicationCommandOptionType::String);
             o.name("bosses");
-            o.description("The bosses available for the training. Comma separated list of repr's. Example: vg,gorse,trio");
+            o.description("The bosses available for the raid. Comma separated list of repr's. Example: vg,gorse,trio");
             o.required(true)
         });
         o.create_sub_option(|o| {
             o.kind(ApplicationCommandOptionType::String);
             o.name("tier");
-            o.description("The required tier for the training. If left empty training is open for everyone")
+            o.description("The required tier for the raid. If left empty raid is open for everyone")
         })
     });
     app.create_option(|o| {
         o.kind(ApplicationCommandOptionType::SubCommand);
         o.name("set");
-        o.description("Change the state of one or multiple training(s)");
+        o.description("Change the state of one or multiple raid(s)");
         o.create_sub_option(|o| {
             o.kind(ApplicationCommandOptionType::String);
             o.name("state");
@@ -110,43 +110,43 @@ pub fn create() -> CreateApplicationCommand {
             o.kind(ApplicationCommandOptionType::String);
             o.name("day");
             o.description(
-                "Select all trainings from that day. Format: yyyy-mm-dd. Comma separated list",
+                "Select all raids from that day. Format: yyyy-mm-dd. Comma separated list",
             )
         });
         o.create_sub_option(|o| {
             o.kind(ApplicationCommandOptionType::String);
             o.name("ids");
-            o.description("Select training(s) with the specified id. Comma separated list")
+            o.description("Select raid(s) with the specified id. Comma separated list")
         })
     });
     app.create_option(|o| {
         o.kind(ApplicationCommandOptionType::SubCommand);
         o.name("list");
-        o.description("List all trainings of a day basic information");
+        o.description("List all raids of a day basic information");
         o.create_sub_option(|o| {
             o.kind(ApplicationCommandOptionType::String);
             o.required(true);
             o.name("day");
             o.description(
-                "Select all trainings from that day. Format: yyyy-mm-dd. Comma separated list",
+                "Select all raids from that day. Format: yyyy-mm-dd. Comma separated list",
             )
         })
     });
     app.create_option(|o| {
         o.kind(ApplicationCommandOptionType::SubCommand);
         o.name("download");
-        o.description("Download one or multiple training(s)");
+        o.description("Download one or multiple raid(s)");
         o.create_sub_option(|o| {
             o.kind(ApplicationCommandOptionType::String);
             o.name("day");
             o.description(
-                "Select all trainings from that day. Format: yyyy-mm-dd. Comma separated list",
+                "Select all raids from that day. Format: yyyy-mm-dd. Comma separated list",
             )
         });
         o.create_sub_option(|o| {
             o.kind(ApplicationCommandOptionType::String);
             o.name("ids");
-            o.description("Select training(s) with the specified id. Comma separated list")
+            o.description("Select raid(s) with the specified id. Comma separated list")
         });
         o.create_sub_option(|o| {
             o.kind(ApplicationCommandOptionType::String);
@@ -159,12 +159,12 @@ pub fn create() -> CreateApplicationCommand {
     app.create_option(|o| {
         o.kind(ApplicationCommandOptionType::SubCommand);
         o.name("info");
-        o.description("Show detailed information about a training");
+        o.description("Show detailed information about a raid");
         o.create_sub_option(|o| {
             o.kind(ApplicationCommandOptionType::Integer);
             o.required(true);
             o.name("id");
-            o.description("The id of the training");
+            o.description("The id of the raid");
             o.min_int_value(0)
         });
         o.create_sub_option(|o| {
@@ -195,39 +195,39 @@ pub async fn handle(ctx: &Context, aci: &ApplicationCommandInteraction) {
     .await;
 }
 
-async fn trainings_from_days(ctx: &Context, value: &str) -> Result<Vec<db::Training>> {
+async fn raids_from_days(ctx: &Context, value: &str) -> Result<Vec<db::Raid>> {
     let days: Vec<NaiveDate> = value
         .split(',')
         .map(|s| s.parse())
         .collect::<Result<Vec<_>, _>>()
         .context("Could not parse date")?;
 
-    let trainings_fut = days
+    let raids_fut = days
         .into_iter()
-        .map(|d| db::Training::by_date(ctx, d))
+        .map(|d| db::Raid::by_date(ctx, d))
         .collect::<Vec<_>>();
 
-    Ok(future::try_join_all(trainings_fut)
+    Ok(future::try_join_all(raids_fut)
         .await?
         .into_iter()
         .flatten()
         .collect::<Vec<_>>())
 }
 
-async fn trainings_from_ids(ctx: &Context, value: &str) -> Result<Vec<db::Training>> {
+async fn raids_from_ids(ctx: &Context, value: &str) -> Result<Vec<db::Raid>> {
     let i: Vec<i32> = value
         .split(',')
         .map(|s| s.parse())
         .collect::<Result<Vec<_>, _>>()?;
 
-    let trainings_fut = i
+    let raids_fut = i
         .into_iter()
-        .map(|i| db::Training::by_id(ctx, i))
+        .map(|i| db::Raid::by_id(ctx, i))
         .collect::<Vec<_>>();
 
-    Ok(future::try_join_all(trainings_fut)
+    Ok(future::try_join_all(raids_fut)
         .await
-        .context("Training id does not exist")?)
+        .context("Raid id does not exist")?)
 }
 
 async fn add(
@@ -238,7 +238,7 @@ async fn add(
 ) -> Result<()> {
     let cmds = command_map(option);
 
-    trace.step("Parsing basic training data");
+    trace.step("Parsing basic raid data");
 
     let name = cmds
         .get("name")
@@ -266,7 +266,7 @@ async fn add(
     let datetime: NaiveDateTime = day.and_time(time);
 
     let mut emb = CreateEmbed::xdefault();
-    emb.title("Creating a new training");
+    emb.title("Creating a new raid");
     emb.field("Name", name, false);
     emb.field("Date/Time", format!("<t:{}>", datetime.timestamp()), false);
 
@@ -283,7 +283,7 @@ async fn add(
 
     let msg = aci.get_interaction_response(ctx).await?;
 
-    trace.step("Loading training roles");
+    trace.step("Loading raid roles");
 
     let roles_str: Vec<&str> = cmds
         .get("roles")
@@ -311,7 +311,7 @@ async fn add(
     aci.edit_original_interaction_response(ctx, |d| d.add_embed(emb_loading_bosses))
         .await?;
 
-    trace.step("Loading training bosses");
+    trace.step("Loading raid bosses");
 
     let bosses_str: Vec<&str> = cmds
         .get("bosses")
@@ -322,9 +322,9 @@ async fn add(
         .map(|s| s.trim())
         .collect();
 
-    let mut bosses: Vec<db::TrainingBoss> = Vec::with_capacity(bosses_str.len());
+    let mut bosses: Vec<db::RaidBoss> = Vec::with_capacity(bosses_str.len());
     for b in bosses_str {
-        let nb = db::TrainingBoss::by_repr(ctx, b.to_string())
+        let nb = db::RaidBoss::by_repr(ctx, b.to_string())
             .await
             .with_context(|| format!("Failed to load boss {}", b))
             .map_err_reply(|what| aci.edit_quick_error(ctx, what))
@@ -374,33 +374,33 @@ async fn add(
         react.defer(ctx).await?;
         match react.parse_button()? {
             Button::Confirm => {
-                trace.step("Confirmed. Saving training");
-                let training =
-                    db::Training::insert(ctx, name.to_string(), datetime, tier.map(|t| t.id))
+                trace.step("Confirmed. Saving raid");
+                let raid =
+                    db::Raid::insert(ctx, name.to_string(), datetime, tier.map(|t| t.id))
                         .await
                         .map_err_reply(|what| aci.edit_quick_error(ctx, what))
                         .await?;
 
                 trace.step("Saving roles");
                 for r in roles {
-                    training
+                    raid
                         .add_role(ctx, r.id)
                         .await
                         .map_err_reply(|what| aci.edit_quick_error(ctx, what))
                         .await?;
                 }
 
-                trace.step("Saving training bosses");
+                trace.step("Saving raid bosses");
                 for tb in bosses {
-                    training
-                        .add_training_boss(ctx, tb.id)
+                    raid
+                        .add_raid_boss(ctx, tb.id)
                         .await
                         .map_err_reply(|what| aci.edit_quick_error(ctx, what))
                         .await?;
                 }
 
-                emb.field("Training ID", training.id, false);
-                emb.footer(|f| f.text(format!("Training added {}", CHECK_EMOJI)));
+                emb.field("Raid ID", raid.id, false);
+                emb.footer(|f| f.text(format!("Raid added {}", CHECK_EMOJI)));
                 aci.edit_original_interaction_response(ctx, |d| {
                     d.add_embed(emb);
                     d.components(|c| c)
@@ -444,20 +444,20 @@ async fn set(
         .unwrap()
         .as_str()
         .unwrap()
-        .parse::<TrainingState>()
+        .parse::<RaidState>()
         .unwrap();
 
-    // Although loading full trainings is a bit overhead
+    // Although loading full raids is a bit overhead
     // it also guarantees they exist
-    let mut trainings: Vec<db::Training> = Vec::new();
+    let mut raids: Vec<db::Raid> = Vec::new();
 
     if let Some(days) = cmds
         .get("day")
         .and_then(|d| d.value.as_ref())
         .and_then(|d| d.as_str())
     {
-        trainings.append(
-            &mut trainings_from_days(ctx, days)
+        raids.append(
+            &mut raids_from_days(ctx, days)
                 .await
                 .map_err_reply(|what| aci.create_quick_error(ctx, what, true))
                 .await?,
@@ -469,16 +469,16 @@ async fn set(
         .and_then(|d| d.value.as_ref())
         .and_then(|d| d.as_str())
     {
-        trainings.append(
-            &mut trainings_from_ids(ctx, ids)
+        raids.append(
+            &mut raids_from_ids(ctx, ids)
                 .await
                 .map_err_reply(|what| aci.create_quick_error(ctx, what, true))
                 .await?,
         );
     }
 
-    if trainings.is_empty() {
-        Err(anyhow!("Select at least one training"))
+    if raids.is_empty() {
+        Err(anyhow!("Select at least one raid"))
             .map_err_reply(|what| aci.create_quick_error(ctx, what, true))
             .await?;
     }
@@ -486,14 +486,14 @@ async fn set(
     trace.step("Traning(s) loaded");
 
     // filter out multiple
-    trainings.sort_by_key(|t| t.id);
-    trainings.dedup_by_key(|t| t.id);
-    trainings.sort_by_key(|t| t.date);
+    raids.sort_by_key(|t| t.id);
+    raids.dedup_by_key(|t| t.id);
+    raids.sort_by_key(|t| t.date);
 
     let mut te = CreateEmbed::xdefault();
-    te.title("Change training state");
-    te.description(format!("Setting the following trainings to: **{}**", state));
-    te.fields(trainings.iter().map(|id| {
+    te.title("Change raid state");
+    te.description(format!("Setting the following raids to: **{}**", state));
+    te.fields(raids.iter().map(|id| {
         (
             format!("{} | {}", id.id, id.title),
             format!("<t:{}>", id.date.timestamp()),
@@ -533,7 +533,7 @@ async fn set(
                         .await?;
 
                     trace.step("Updating traning(s)");
-                    let update_futs: Vec<_> = trainings
+                    let update_futs: Vec<_> = raids
                         .into_iter()
                         .map(|t| t.set_state(ctx, state.clone()))
                         .collect();
@@ -542,7 +542,7 @@ async fn set(
                     response
                         .edit_original_interaction_response(ctx, |m| {
                             m.create_embed(|e| {
-                                e.title("Trainings updated");
+                                e.title("Raids updated");
                                 e.description("Updating Signup Board and status ...")
                             })
                         })
@@ -625,8 +625,8 @@ struct SignupDataCsv<'a> {
     discord_acc: String,
     #[serde(rename = "Discord Ping")]
     discord_ping: String,
-    #[serde(rename = "Training Name")]
-    training_name: &'a str,
+    #[serde(rename = "Raid Name")]
+    raid_name: &'a str,
     #[serde(rename = "Roles")]
     roles: String,
     #[serde(rename = "Comment")]
@@ -634,8 +634,8 @@ struct SignupDataCsv<'a> {
 }
 
 #[derive(Serialize)]
-struct TrainingData {
-    training: db::Training,
+struct RaidData {
+    raid: db::Raid,
     available_roles: Vec<db::Role>,
     signups: Vec<SignupData>,
 }
@@ -651,7 +651,7 @@ struct TierData {
 struct DownloadData {
     output: DonwloadFormat,
     created: NaiveDateTime,
-    trainings: Vec<TrainingData>,
+    raids: Vec<RaidData>,
     tiers: Vec<TierData>,
 }
 
@@ -659,13 +659,13 @@ impl DownloadData {
     fn to_csv(&self) -> Vec<SignupDataCsv<'_>> {
         let mut v = Vec::new();
 
-        for t in &self.trainings {
+        for t in &self.raids {
             for s in &t.signups {
                 let elem = SignupDataCsv {
                     gw2_acc: &s.user.gw2_id,
                     discord_acc: s.member.user.tag(),
                     discord_ping: Mention::from(&s.member).to_string(),
-                    training_name: &t.training.title,
+                    raid_name: &t.raid.title,
                     roles: s
                         .roles
                         .iter()
@@ -705,49 +705,49 @@ async fn download(
         .map(|o| (o.name.clone(), o))
         .collect::<HashMap<_, _>>();
 
-    // Although loading full trainings is a bit overhead
+    // Although loading full raids is a bit overhead
     // it also guarantees they exist
-    let mut trainings: Vec<db::Training> = Vec::new();
+    let mut raids: Vec<db::Raid> = Vec::new();
 
-    trace.step("Loading training's by date");
+    trace.step("Loading raid's by date");
     if let Some(days) = cmds
         .get("day")
         .and_then(|d| d.value.as_ref())
         .and_then(|d| d.as_str())
     {
-        trainings.append(
-            &mut trainings_from_days(ctx, days)
+        raids.append(
+            &mut raids_from_days(ctx, days)
                 .await
                 .map_err_reply(|what| aci.create_quick_error(ctx, what, true))
                 .await?,
         );
     }
 
-    trace.step("Loading training's by id");
+    trace.step("Loading raid's by id");
     if let Some(ids) = cmds
         .get("ids")
         .and_then(|d| d.value.as_ref())
         .and_then(|d| d.as_str())
     {
-        trainings.append(
-            &mut trainings_from_ids(ctx, ids)
+        raids.append(
+            &mut raids_from_ids(ctx, ids)
                 .await
                 .map_err_reply(|what| aci.create_quick_error(ctx, what, true))
                 .await?,
         );
     }
 
-    if trainings.is_empty() {
-        Err(anyhow!("Select at least one training"))
+    if raids.is_empty() {
+        Err(anyhow!("Select at least one raid"))
             .map_err_reply(|what| aci.create_quick_error(ctx, what, true))
             .await?;
     }
 
-    trace.step("sort training's");
+    trace.step("sort raid's");
     // filter out multiple
-    trainings.sort_by_key(|t| t.id);
-    trainings.dedup_by_key(|t| t.id);
-    trainings.sort_by_key(|t| t.date);
+    raids.sort_by_key(|t| t.id);
+    raids.dedup_by_key(|t| t.id);
+    raids.sort_by_key(|t| t.date);
 
     // What to parse to
     let format = if let Some(f) = cmds
@@ -764,15 +764,15 @@ async fn download(
         DonwloadFormat::Csv // Default
     };
 
-    aci.create_quick_info(ctx, "Parsing training data...", true)
+    aci.create_quick_info(ctx, "Parsing raid data...", true)
         .await?;
 
     let msg = aci.get_interaction_response(ctx).await?;
 
     let mut log: Vec<String> = Vec::new();
-    let mut tds: Vec<TrainingData> = Vec::with_capacity(trainings.len());
+    let mut tds: Vec<RaidData> = Vec::with_capacity(raids.len());
 
-    for t in trainings {
+    for t in raids {
         let signups = t.get_signups(ctx).await?;
         let mut sds: Vec<SignupData> = Vec::with_capacity(signups.len());
 
@@ -807,8 +807,8 @@ async fn download(
 
         let available_roles = t.all_roles(ctx).await?;
 
-        tds.push(TrainingData {
-            training: t,
+        tds.push(RaidData {
+            raid: t,
             available_roles,
             signups: sds,
         });
@@ -847,7 +847,7 @@ async fn download(
     let data = DownloadData {
         output: format,
         created: chrono::Utc::now().naive_utc(),
-        trainings: tds,
+        raids: tds,
         tiers,
     };
 
@@ -888,15 +888,15 @@ async fn download(
                     false,
                 );
                 e.field(
-                    "Trainings",
-                    data.trainings
+                    "Raids",
+                    data.raids
                         .iter()
                         .map(|t| {
                             format!(
                                 "\n__{}__\nId: {}\nData: <t:{}>",
-                                t.training.title,
-                                t.training.id,
-                                t.training.date.timestamp()
+                                t.raid.title,
+                                t.raid.id,
+                                t.raid.date.timestamp()
                             )
                         })
                         .collect::<Vec<_>>()
@@ -946,23 +946,23 @@ async fn info(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    trace.step("Loading training information");
+    trace.step("Loading raid information");
 
-    let training = db::Training::by_id(ctx, id as i32)
+    let raid = db::Raid::by_id(ctx, id as i32)
         .await
-        .with_context(|| format!("Failed to load training with id: {}", id))
+        .with_context(|| format!("Failed to load raid with id: {}", id))
         .map_err_reply(|what| aci.create_quick_error(ctx, what, true))
         .await?;
 
-    let bosses = training.all_training_bosses(ctx).await?;
+    let bosses = raid.all_raid_bosses(ctx).await?;
 
-    let roles = training.all_roles(ctx).await?;
+    let roles = raid.all_roles(ctx).await?;
 
     // HashMap with Role id as key and value to keep count
     let mut roles_count = roles.iter().map(|r| (r.id, 0)).collect::<HashMap<_, _>>();
 
     trace.step("Loading signups to calculate role count");
-    let signups = training.get_signups(ctx).await?;
+    let signups = raid.get_signups(ctx).await?;
 
     future::try_join_all(signups.iter().map(|s| s.get_roles(ctx)))
         .await?
@@ -980,10 +980,10 @@ async fn info(
                 d.flags(InteractionApplicationCommandCallbackDataFlags::EPHEMERAL);
             }
             let mut emb = CreateEmbed::xdefault();
-            emb.field("Training", training.title, false);
+            emb.field("Raid", raid.title, false);
             emb.field(
                 "Date/Time",
-                format!("<t:{}>", training.date.timestamp()),
+                format!("<t:{}>", raid.date.timestamp()),
                 false,
             );
 
@@ -1036,16 +1036,16 @@ async fn list(
 ) -> Result<()> {
     let cmds = command_map(option);
 
-    trace.step("Loading training's");
-    let mut trainings = trainings_from_days(ctx, cmds.get("day").unwrap().as_str().unwrap())
+    trace.step("Loading raid's");
+    let mut raids = raids_from_days(ctx, cmds.get("day").unwrap().as_str().unwrap())
         .await
         .map_err_reply(|what| aci.create_quick_error(ctx, what, true))
         .await?;
-    trainings.sort_by_key(|t| t.date);
+    raids.sort_by_key(|t| t.date);
 
     let mut embeds: Vec<CreateEmbed> = Vec::new();
     let mut data_grouped = Vec::new();
-    for (key, group) in &trainings.into_iter().group_by(|a| a.date.date()) {
+    for (key, group) in &raids.into_iter().group_by(|a| a.date.date()) {
         data_grouped.push((key, group.collect::<Vec<_>>()));
     }
     for (d, ts) in data_grouped {

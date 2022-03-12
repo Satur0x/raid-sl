@@ -42,27 +42,27 @@ fn discord_timestamp(dt: &NaiveDateTime) -> String {
 }
 
 const GOOGLE_CALENDAR_TIME_FMT: &str = "%Y%m%dT%H%M%SZ";
-pub(crate) fn google_calendar_link(training: &db::Training) -> String {
-    let begin = training.date.format(GOOGLE_CALENDAR_TIME_FMT);
-    let end = (training.date + Duration::hours(2)).format(GOOGLE_CALENDAR_TIME_FMT);
+pub(crate) fn google_calendar_link(raid: &db::Raid) -> String {
+    let begin = raid.date.format(GOOGLE_CALENDAR_TIME_FMT);
+    let end = (raid.date + Duration::hours(2)).format(GOOGLE_CALENDAR_TIME_FMT);
     format!(
         "https://calendar.google.com/calendar/event?action=TEMPLATE&dates={}/{}&text={}",
         begin,
         end,
-        training.title.replace(" ", "%20")
+        raid.title.replace(" ", "%20")
     )
 }
 
-const TRAINING_TIME_FMT: &str = "%H:%M (UTC)";
+const RAID_TIME_FMT: &str = "%H:%M (UTC)";
 
-pub(crate) fn field_training_date(training: &db::Training) -> (String, String, bool) {
+pub(crate) fn field_raid_date(raid: &db::Raid) -> (String, String, bool) {
     (
         "**Date**".to_string(),
         format!(
             "{} | [{}]({})",
-            discord_timestamp(&training.date),
-            training.date.format(TRAINING_TIME_FMT),
-            google_calendar_link(training),
+            discord_timestamp(&raid.date),
+            raid.date.format(RAID_TIME_FMT),
+            google_calendar_link(raid),
         ),
         false,
     )
