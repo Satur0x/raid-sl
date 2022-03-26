@@ -1,5 +1,5 @@
 [package]
-name = "crossroadsbot"
+name = "raidhelpbot"
 version = "1.0.0"
 authors = ["Narturio"]
 edition = "2021"

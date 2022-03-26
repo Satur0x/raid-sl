@@ -173,7 +173,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "crossroadsbot"
+name = "raidhelpbot"
 version = "1.0.0"
 dependencies = [
  "anyhow",

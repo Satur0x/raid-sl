@@ -1,7 +1,7 @@
 FROM rust:1.58.1
 
-WORKDIR /crossroadsbot
+WORKDIR /raidhelpbot
 COPY . .
 RUN cargo install --path .
 
-CMD ["crossroadsbot"]
+CMD ["raidhelpbot"]

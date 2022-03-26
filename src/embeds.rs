@@ -6,7 +6,7 @@ use serenity::{
 };
 
 const EMBED_AUTHOR_ICON_URL: &str = "https://cdn.discordapp.com/app-icons/951478616095604786/c688ced5faebc2fc23320fc62be291b9.png?size=128";
-const EMBED_AUTHOR_NAME: &str = "Raid Shadow Legends";
+const EMBED_AUTHOR_NAME: &str = "Raid Helper Bot";
 const EMBED_THUMBNAIL: &str =
     "https://cdn.discordapp.com/app-icons/951478616095604786/c688ced5faebc2fc23320fc62be291b9.png?size=256";
 const EMBED_STYLE_COLOR: (u8, u8, u8) = (99, 51, 45);
@@ -49,7 +49,7 @@ pub(crate) fn google_calendar_link(raid: &db::Raid) -> String {
         "https://calendar.google.com/calendar/event?action=TEMPLATE&dates={}/{}&text={}",
         begin,
         end,
-        training.title.replace(' ', "%20")
+        raid.title.replace(' ', "%20")
     )
 }
 
